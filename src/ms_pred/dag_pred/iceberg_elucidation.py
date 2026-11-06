@@ -78,13 +78,23 @@ def candidates_from_pubchem(
                 compounds = pcp.get_compounds(form, namespace='formula')
                 return_smis = []
                 for cmpd in compounds:
-                    smiles_records = [i for i in cmpd.to_dict().get("record").get("props") if i["urn"]["label"] == "SMILES"]
                     smi = None
-                    if len(smiles_records) > 0:
-                        smi = smiles_records[0]['value']['sval']
+                    try:
+                        d = cmpd.to_dict()
+                        record = d.get('record') or {}
+                        props = record.get('props') or []
+                        smiles_records = [i for i in props if i.get('urn', {}).get('label') == 'SMILES']
+                        if len(smiles_records) > 0:
+                            smi = smiles_records[0].get('value', {}).get('sval')
+                    except Exception:
+                        smi = None
+
+                    # Fallbacks if SMILES not found in record props
+                    if smi is None:
+                        smi = getattr(cmpd, 'isomeric_smiles', None) or getattr(cmpd, 'canonical_smiles', None)
+
                     return_smis.append(smi)
                 return return_smis
-                # Was working: return [cmpd.isomeric_smiles for cmpd in compounds]
             except pcp.BadRequestError:
                 return []
         try:
